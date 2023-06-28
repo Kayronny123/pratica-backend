@@ -28,3 +28,12 @@ export type ProductDB = {
     description: string,
     image_url: string
 }
+
+export type Purchase = {
+    id: string,
+    buyer: string,
+    products: {
+        id: string,
+        quantity: number
+    }[]
+}

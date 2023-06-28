@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { db } from './database/knex';
-import { Product, ProductDB, User, UserDB } from './types';
+import { Product, ProductDB, Purchase, User, UserDB } from './types';
 
 const app = express();
 app.use(express.json());
@@ -181,3 +181,60 @@ app.put("/products/:id", async (req: Request, res: Response) => {
         }
     })
 
+app.post("/purchases", async (req: Request, res: Response)=>{
+    try {
+    const {id, buyer, products}: Purchase = req.body
+
+    if(!id || !buyer || !products){
+        throw new Error("É nescessário passar as informações de id, buyer e products")
+    }
+    if(typeof id !== 'string' || typeof buyer !== 'string' ){
+        throw new Error('Tipos de dados de id e buyer precisam ser string')
+    }
+    const productsIsArray = Array.isArray(products)
+    if(productsIsArray === false){
+        throw new Error("Products precisa ser um array")
+    }
+    const [idValid] = await db("purchases").where({id})
+    if(idValid){
+        throw new Error("Id de usuario já em uso")
+    }    
+    const [buyerExist] = await db("users").where({id: buyer})
+    if(!buyerExist){
+        throw new Error("Id de usuário inválido")
+    }
+    const productsIds = products.map(prod => prod.id)
+
+    const productsExists: ProductDB[] = await db('products').whereIn("id", productsIds)
+
+    if(products.length > productsExists.length){
+        throw new Error("Verifique os ids dos produtos")
+    }
+    const totalPrice = productsExists.map((product) =>{
+        const productToSum = products.find(prod => prod.id === product.id)
+    
+        if(productToSum){
+            return product.price * productToSum.quantity
+        }
+        return 0
+    }).reduce((total, price) => total + price, 0)
+  
+        const newPurchase = {
+            id,
+            buyer,
+            total_price: totalPrice
+        }
+
+        await db("purchases").insert(newPurchase)
+
+        await db("purchases_products").insert(products.map((prod)=>({
+            purchase_id: id,
+            product_id: prod.id,
+            quantity: prod.quantity
+        })))
+        res.status(200).send({message:"Pedido realizado com sucesso"})
+
+    } catch (error:any) {
+        res.status(400).send(error.message)
+    }
+})
