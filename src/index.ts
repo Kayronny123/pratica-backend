@@ -153,7 +153,7 @@ app.put("/products/:id", async (req: Request, res: Response) => {
                 throw new Error("tipo de dado de id precisa ser string")
             }
 
-        if (imageUrl) {
+            if (imageUrl) {
                 if (typeof imageUrl !== "string") {
                     throw new Error("tipo de dado de id precisa ser string")
                 }
@@ -173,52 +173,52 @@ app.put("/products/:id", async (req: Request, res: Response) => {
             image_url: imageUrl || productToEdit.image_url
         }
 
-        await db("products").update(newProduct).where({id: idToEdit})
+        await db("products").update(newProduct).where({ id: idToEdit })
 
         res.status(200).send("produto atualizado com sucesso")
-        } catch (error: any) {
-            res.status(400).send(error.message)
-        }
-    })
+    } catch (error: any) {
+        res.status(400).send(error.message)
+    }
+})
 
-app.post("/purchases", async (req: Request, res: Response)=>{
+app.post("/purchases", async (req: Request, res: Response) => {
     try {
-    const {id, buyer, products}: Purchase = req.body
+        const { id, buyer, products }: Purchase = req.body
 
-    if(!id || !buyer || !products){
-        throw new Error("É nescessário passar as informações de id, buyer e products")
-    }
-    if(typeof id !== 'string' || typeof buyer !== 'string' ){
-        throw new Error('Tipos de dados de id e buyer precisam ser string')
-    }
-    const productsIsArray = Array.isArray(products)
-    if(productsIsArray === false){
-        throw new Error("Products precisa ser um array")
-    }
-    const [idValid] = await db("purchases").where({id})
-    if(idValid){
-        throw new Error("Id de usuario já em uso")
-    }    
-    const [buyerExist] = await db("users").where({id: buyer})
-    if(!buyerExist){
-        throw new Error("Id de usuário inválido")
-    }
-    const productsIds = products.map(prod => prod.id)
-
-    const productsExists: ProductDB[] = await db('products').whereIn("id", productsIds)
-
-    if(products.length > productsExists.length){
-        throw new Error("Verifique os ids dos produtos")
-    }
-    const totalPrice = productsExists.map((product) =>{
-        const productToSum = products.find(prod => prod.id === product.id)
-    
-        if(productToSum){
-            return product.price * productToSum.quantity
+        if (!id || !buyer || !products) {
+            throw new Error("É nescessário passar as informações de id, buyer e products")
         }
-        return 0
-    }).reduce((total, price) => total + price, 0)
-  
+        if (typeof id !== 'string' || typeof buyer !== 'string') {
+            throw new Error('Tipos de dados de id e buyer precisam ser string')
+        }
+        const productsIsArray = Array.isArray(products)
+        if (productsIsArray === false) {
+            throw new Error("Products precisa ser um array")
+        }
+        const [idValid] = await db("purchases").where({ id })
+        if (idValid) {
+            throw new Error("Id de usuario já em uso")
+        }
+        const [buyerExist] = await db("users").where({ id: buyer })
+        if (!buyerExist) {
+            throw new Error("Id de usuário inválido")
+        }
+        const productsIds = products.map(prod => prod.id)
+
+        const productsExists: ProductDB[] = await db('products').whereIn("id", productsIds)
+
+        if (products.length > productsExists.length) {
+            throw new Error("Verifique os ids de compra dos produtos")
+        }
+        const totalPrice = productsExists.map((product) => {
+            const productToSum = products.find(prod => prod.id === product.id)
+
+            if (productToSum) {
+                return product.price * productToSum.quantity
+            }
+            return 0
+        }).reduce((total, price) => total + price, 0)
+
         const newPurchase = {
             id,
             buyer,
@@ -227,14 +227,69 @@ app.post("/purchases", async (req: Request, res: Response)=>{
 
         await db("purchases").insert(newPurchase)
 
-        await db("purchases_products").insert(products.map((prod)=>({
+        await db("purchases_products").insert(products.map((prod) => ({
             purchase_id: id,
             product_id: prod.id,
             quantity: prod.quantity
         })))
-        res.status(200).send({message:"Pedido realizado com sucesso"})
+        res.status(200).send({ message: "Pedido realizado com sucesso" })
 
-    } catch (error:any) {
+    } catch (error: any) {
+        res.status(400).send(error.message)
+    }
+})
+app.get("/purchases/:id", async (req: Request, res: Response) => {
+    try {
+
+        const id = req.params.id
+
+        const [idExist] = await db("purchases").where({ id })
+        if (!idExist) {
+            throw new Error("id de compra inválido")
+        }
+
+        const purchaseResponse = await db("purchases AS pur").select(
+            "pur.id AS purchaseId",
+            "u.id AS buyerId",
+            "u.name as buyerName",
+            "u.email AS buyerEmail",
+            "pur.total_price AS  totalPrice",
+            "pur.created_at AS createdAt"
+        )
+            .innerJoin("users as u", "u.id", "=", "pur.buyer")
+            .where("pur.id", "=", id)
+
+        const productResponse = await db("products AS pro")
+        .select(
+            "pro.id AS id",
+            "pro.name AS name",
+            "pro.price AS price",
+            "pro.description AS description",
+            "pro.image_url AS imageUrl",
+            "pur.quantity AS quantity"
+        )
+        .innerJoin("purchases_products AS  pur", "pur.product_id", "=", "pro.id")
+        .where("pur.purchase_id", "=", id)
+
+        const result = {...purchaseResponse[0], products: [...productResponse]}
+            res.status(200).send(result)
+    } catch (error: any) {
+        res.status(400).send(error.message)
+    }
+})
+
+app.delete("/purchases/:id", async (req: Request, res: Response) => {
+    try {
+        const id = req.params.id
+        const [idExist] = await db("purchases").where({ id })
+        if (!id) {
+            throw new Error("Id da compra inválido")
+        }
+        await db("purchases_products").del().where({ purchase_id: id })
+        await db("purchases").del().where({ id })
+        res.status(200).send({ message: "Pedido cancelado com sucesso" })
+
+    } catch (error: any) {
         res.status(400).send(error.message)
     }
 })
