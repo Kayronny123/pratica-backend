@@ -70,19 +70,19 @@ app.post("/users", async (req: Request, res: Response) => {
     }
 })
 
-app.get("/products", async (req: Request, res:Response)=>{
+app.get("/products", async (req: Request, res: Response) => {
     try {
         const name: string = req.query.name as string
         let productData: ProductDB[];
-        if(name){
+        if (name) {
             productData = await db("products").whereLike("name", `%${name}%`)
         } else {
             productData = await db("products")
         }
 
-       
-        const response: Product[] = productData.map((product)=>{
-            return{
+
+        const response: Product[] = productData.map((product) => {
+            return {
                 id: product.id,
                 name: product.name,
                 price: product.price,
@@ -91,24 +91,24 @@ app.get("/products", async (req: Request, res:Response)=>{
             }
         })
         res.status(200).send(response)
-    } catch (error:any) {
+    } catch (error: any) {
         res.status(400).send(error.message)
-        
+
     }
 })
 
-app.post("/products", async (req: Request, res:Response)=>{
+app.post("/products", async (req: Request, res: Response) => {
     try {
-        const {id, name, price, description, imageUrl}: Product = req.body
+        const { id, name, price, description, imageUrl }: Product = req.body
 
-        if(!id || !name || !price || !description || !imageUrl){
+        if (!id || !name || !price || !description || !imageUrl) {
             throw new Error("É nescessário informar id, name, price, description, e imageUrl para criar um produto")
         }
-        if(typeof id !== "string" || typeof name !== "string" || typeof price !== "number" || typeof description !== "string" || typeof imageUrl !== "string"){
+        if (typeof id !== "string" || typeof name !== "string" || typeof price !== "number" || typeof description !== "string" || typeof imageUrl !== "string") {
             throw new Error("Os tipos de dados de id, name, description imageUrl devem ser string e price deve ser number")
         }
-        const [idExist] = await db("products").where({id})
-        if(idExist){
+        const [idExist] = await db("products").where({ id })
+        if (idExist) {
             throw new Error("Id de produto já cadastrado")
         }
         const newProduct: ProductDB = {
@@ -120,10 +120,64 @@ app.post("/products", async (req: Request, res:Response)=>{
         }
         await db("products").insert(newProduct)
 
-        res.status(201).send({message: "Produto cadastrado com sucesso"})
+        res.status(201).send({ message: "Produto cadastrado com sucesso" })
     } catch (error: any) {
         res.status(400).send(error.message)
-        
+
     }
 })
+
+app.put("/products/:id", async (req: Request, res: Response) => {
+    try {
+        const idToEdit: string = req.params.id
+        const { id, name, price, description, imageUrl }: Product = req.body
+
+
+        if (id) {
+            if (typeof id !== "string") {
+                throw new Error("tipo de dado de id precisa ser string")
+            }
+        }
+        if (name) {
+            if (typeof name !== "string") {
+                throw new Error("tipo de dado de id precisa ser string")
+            }
+        }
+        if (price) {
+            if (typeof price !== "number") {
+                throw new Error("tipo de dado de id precisa ser number")
+            }
+        }
+        if (description) {
+            if (typeof description !== "string") {
+                throw new Error("tipo de dado de id precisa ser string")
+            }
+
+        if (imageUrl) {
+                if (typeof imageUrl !== "string") {
+                    throw new Error("tipo de dado de id precisa ser string")
+                }
+            }
+        }
+        const [productToEdit]: ProductDB[] = await db("products").where({ id: idToEdit })
+
+        if (!productToEdit) {
+            throw new Error("Id não existe ou é invalido")
+        }
+
+        const newProduct: ProductDB = {
+            id: id || productToEdit.id,
+            name: name || productToEdit.name,
+            price: price || productToEdit.price,
+            description: description || productToEdit.description,
+            image_url: imageUrl || productToEdit.image_url
+        }
+
+        await db("products").update(newProduct).where({id: idToEdit})
+
+        res.status(200).send("produto atualizado com sucesso")
+        } catch (error: any) {
+            res.status(400).send(error.message)
+        }
+    })
 
