@@ -11,4 +11,10 @@ INSERT INTO users(id, name, email, password)
 VALUES
 ('u01', 'Rogerio', 'rogerio@email.com', '123456'),
 ('u001', 'Ayranne', 'ayranne@email.com', '654321');
-
+CREATE TABLE products(
+    id TEXT PRIMARY KEY UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    price INT NOT NULL,
+    description TEXT NOT NULL,
+    image_url TEXT NOT NULL
+);
